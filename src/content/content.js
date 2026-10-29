@@ -2,6 +2,28 @@
   const { MESSAGES, escapeHtml, getAccountChoices, isValidAccountId } = self.AWSAutoLogin || {};
   if (!MESSAGES) return;
   let bannerShown = false;
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message.type !== MESSAGES.GET_CURRENT_ACCOUNT) return;
+    let accountId = '';
+    let alias = '';
+    try {
+      const data = JSON.parse(
+        document.querySelector('meta[name="awsc-session-data"]')?.content || '{}',
+      );
+      accountId = typeof data.accountId === 'string' ? data.accountId : '';
+      alias = typeof data.accountAlias === 'string' ? data.accountAlias : '';
+    } catch {
+      /* AWS session metadata may not be available yet. */
+    }
+    if (!isValidAccountId(accountId)) {
+      const menu = document.querySelector(
+        '[data-testid="aws-my-account-details"], #nav-usernameMenu',
+      );
+      const match = menu?.textContent?.match(/(?:^|\D)(\d{4})-?(\d{4})-?(\d{4})(?!\d)/);
+      accountId = match ? match.slice(1).join('') : '';
+    }
+    respond(isValidAccountId(accountId) ? { accountId, alias } : null);
+  });
 
   init().catch((error) => console.debug('[AccountHop] Could not check this page:', error.message));
 

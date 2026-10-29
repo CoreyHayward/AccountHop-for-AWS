@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let settings;
   let busy = false;
   let allAccounts = [];
+  let currentAccount = null;
 
   function showError(error) {
     el('error').textContent =
@@ -99,6 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const name = document.createElement('span');
       name.className = 'account-label';
       name.textContent = account.label;
+      if (account.accountId === currentAccount?.accountId) name.textContent += ' · Current';
       const info = document.createElement('span');
       info.className = 'account-meta';
       info.textContent = `${account.accountId} · ${account.roleName || settings.roleName}`;
@@ -147,6 +149,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const response = await request({ type: MESSAGES.GET_DETECTION, url: tab?.url || '' });
     settings = response.settings;
     allAccounts = getAccountChoices(settings.accountMappings);
+    if (isAwsConsoleUrl(tab?.url)) {
+      try {
+        currentAccount = await chrome.tabs.sendMessage(tab.id, {
+          type: MESSAGES.GET_CURRENT_ACCOUNT,
+        });
+      } catch {
+        currentAccount = null;
+      }
+      el('currentAccount').hidden = false;
+      const saved = allAccounts.find((account) => account.accountId === currentAccount?.accountId);
+      el('currentAccountName').textContent = currentAccount
+        ? saved?.label || currentAccount.alias || 'AWS account'
+        : 'Account unavailable';
+      el('currentAccountId').textContent =
+        currentAccount?.accountId || 'Open the AWS account menu to check your account.';
+    }
     el('enabled').checked = settings.enabled;
     el('enabled').disabled = false;
     renderState();

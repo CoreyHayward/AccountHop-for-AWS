@@ -603,3 +603,28 @@ test('cancelling a drag keeps the original account order', async ({ extension })
   );
   await expect(page.locator('#saveStatus')).toHaveText('');
 });
+
+test('popup shows the signed-in account, not the account in the link', async ({ extension }) => {
+  await extension.context.route('https://console.aws.amazon.com/s3/**', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: `<meta name="awsc-session-data" content='{ "accountId": "210987654321", "accountAlias": "development" }'><h1>Console</h1>`,
+    }),
+  );
+  await extension.worker.evaluate(() => AWSAutoLogin.setEnabled(false));
+  const page = await extension.context.newPage();
+  await page.goto('https://console.aws.amazon.com/s3/?account=123456789012');
+  await extension.worker.evaluate(() => AWSAutoLogin.setEnabled(true));
+  const opened = extension.context.waitForEvent('page');
+  await extension.worker.evaluate(
+    (url) => chrome.tabs.create({ url, active: false }),
+    `${extension.url}/popup/popup.html`,
+  );
+  const popup = await opened;
+  await expect(popup.locator('#currentAccountName')).toHaveText('Development');
+  await expect(popup.locator('#currentAccountId')).toHaveText('210987654321');
+  await expect(popup.locator('#accountDisplay')).toContainText('123456789012');
+  await expect(popup.locator('.btn-account').filter({ hasText: 'Development' })).toContainText(
+    'Current',
+  );
+});
