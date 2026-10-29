@@ -1,237 +1,206 @@
-importScripts(
-  '../shared/constants.js',
-  '../shared/storage.js',
-  '../shared/account-detector.js'
-);
+importScripts('../shared/constants.js', '../shared/storage.js', '../shared/account-detector.js');
 
 const {
-  MESSAGES, LOOP_TTL_MS, isAwsConsoleUrl, isValidAccountId,
-  detectAccount, getSettings, getRedirectLog, saveRedirectLog,
-  getLearnedAccounts, saveLearnedAccounts, learnAccount, createLearnedEntry,
+  MESSAGES,
+  LOOP_TTL_MS,
+  isAwsConsoleUrl,
+  isValidAccountId,
+  isConfigured,
+  normalizePortalUrl,
+  detectAccount,
+  getSettings,
+  getRedirectLog,
+  saveRedirectLog,
+  getAccountData,
+  saveSettings,
+  setEnabled,
+  learnAccount,
 } = AWSAutoLogin;
 
-// --- In-memory state ---
-
-let settingsCache = null;
 let redirectLog = {};
-const pendingPrompts = new Map();
-
-const hydratedPromise = (async () => {
-  redirectLog = await getRedirectLog();
-})();
-
-// --- Settings cache ---
-
-async function getCachedSettings() {
-  if (!settingsCache) settingsCache = await getSettings();
-  return settingsCache;
-}
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.settings) {
-    settingsCache = { ...AWSAutoLogin.DEFAULT_SETTINGS, ...changes.settings.newValue };
-  }
+const latestNavigations = new Map();
+const hydratedPromise = getRedirectLog().then((log) => {
+  redirectLog = log;
 });
 
-// --- Loop prevention helpers ---
-
 function normalizeUrl(urlString) {
-  try {
-    const u = new URL(urlString);
-    u.hash = '';
-    u.searchParams.sort();
-    for (const key of ['sessionId', 'token', 'X-Amz-Security-Token']) {
-      u.searchParams.delete(key);
-    }
-    return u.origin + u.pathname + u.search;
-  } catch {
-    return urlString;
-  }
+  const url = new URL(urlString);
+  for (const key of ['sessionId', 'token', 'X-Amz-Security-Token']) url.searchParams.delete(key);
+  url.searchParams.sort();
+  return url.href;
 }
 
 function loopKey(tabId, url) {
   return `${tabId}:${normalizeUrl(url)}`;
 }
 
-function wasRecentlyRedirected(key) {
-  const ts = redirectLog[key];
-  return ts && (Date.now() - ts) < LOOP_TTL_MS;
+function wasRecentlyRedirected(tabId, url) {
+  const timestamp = redirectLog[loopKey(tabId, url)];
+  return !!timestamp && Date.now() - timestamp < LOOP_TTL_MS;
 }
 
-function recordRedirect(key) {
-  redirectLog[key] = Date.now();
-  saveRedirectLog(redirectLog);
-}
-
-function consumeRedirectEntry(key) {
-  delete redirectLog[key];
-  saveRedirectLog(redirectLog);
-}
-
-function pruneStaleEntries() {
-  const cutoff = Date.now() - (LOOP_TTL_MS * 2);
-  let changed = false;
+async function recordRedirect(tabId, url) {
+  const cutoff = Date.now() - LOOP_TTL_MS;
   for (const key of Object.keys(redirectLog)) {
-    if (redirectLog[key] < cutoff) {
-      delete redirectLog[key];
-      changed = true;
-    }
+    if (redirectLog[key] < cutoff) delete redirectLog[key];
   }
-  if (changed) saveRedirectLog(redirectLog);
+  redirectLog[loopKey(tabId, url)] = Date.now();
+  await saveRedirectLog(redirectLog);
 }
 
-// --- Portal URL helpers ---
-
-function buildPortalUrl(settings, accountId, destinationUrl, roleOverride) {
-  const portal = settings.portalUrl.replace(/\/$/, '');
-  const base = portal.startsWith('https://') ? portal : `https://${portal}`;
-  const role = roleOverride || settings.roleName;
-  return `${base}/start/#/console?account_id=${accountId}` +
-    `&role_name=${encodeURIComponent(role)}` +
-    `&destination=${encodeURIComponent(destinationUrl)}`;
+function promptKey(tabId) {
+  return `pendingPrompt:${tabId}`;
 }
 
-function isPortalUrl(urlString, portalUrl) {
-  if (!portalUrl) return false;
+function buildPortalUrl(settings, accountId, destination, roleOverride) {
+  return (
+    `https://${normalizePortalUrl(settings.portalUrl)}/start/#/console?account_id=${accountId}` +
+    `&role_name=${encodeURIComponent(roleOverride || settings.roleName)}` +
+    `&destination=${encodeURIComponent(destination)}`
+  );
+}
+
+async function redirectTab(settings, tabId, url, accountId, roleName) {
+  await recordRedirect(tabId, url);
   try {
-    const hostname = new URL(urlString).hostname;
-    const portalHost = portalUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-    return hostname === portalHost || hostname.endsWith('.' + portalHost);
-  } catch {
-    return false;
+    await chrome.tabs.update(tabId, { url: buildPortalUrl(settings, accountId, url, roleName) });
+  } catch (error) {
+    delete redirectLog[loopKey(tabId, url)];
+    await saveRedirectLog(redirectLog);
+    throw error;
   }
+  await learnAccount(accountId, url).catch((error) =>
+    console.error('[AccountHop] Could not remember account:', error),
+  );
 }
 
-// --- Core: intercept AWS console navigations ---
-
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  const { url, tabId, frameId } = details;
+async function handleNavigation({ url, tabId, frameId }) {
   if (frameId !== 0) return;
+  latestNavigations.set(tabId, url);
+  await chrome.storage.session.remove(promptKey(tabId));
   if (!isAwsConsoleUrl(url)) return;
-
   await hydratedPromise;
-  pruneStaleEntries();
-
-  const settings = await getCachedSettings();
-  if (!settings.enabled || !settings.portalUrl || !settings.roleName) return;
-  if (isPortalUrl(url, settings.portalUrl)) return;
-
-  // Loop prevention: if we just redirected this tab+URL, let it through once
-  const key = loopKey(tabId, url);
-  if (wasRecentlyRedirected(key)) {
-    consumeRedirectEntry(key);
-    return;
-  }
-
-  const learned = await getLearnedAccounts();
-  const detection = detectAccount(url, settings.accountMappings, learned);
-
-  const shouldAutoRedirect =
+  const { settings, learnedAccounts } = await getAccountData();
+  if (!settings.enabled || !isConfigured(settings) || wasRecentlyRedirected(tabId, url)) return;
+  if (latestNavigations.get(tabId) !== url) return;
+  const detection = detectAccount(url, settings.accountMappings, learnedAccounts);
+  const shouldRedirect =
     detection.confidence === 'high' ||
     (detection.confidence === 'medium' && settings.autoRedirectMinConfidence !== 'high');
-
-  if (detection.accountId && shouldAutoRedirect) {
-    recordRedirect(key);
-    learnAccount(detection.accountId, url);
-    chrome.tabs.update(tabId, { url: buildPortalUrl(settings, detection.accountId, url, detection.roleName) });
-    return;
-  }
-
-  // Medium confidence with high threshold, or low confidence with prompt fallback
-  if (detection.confidence === 'medium' || settings.fallbackBehavior === 'prompt') {
-    pendingPrompts.set(tabId, { detection, originalUrl: url });
-    return;
-  }
-
-  if (settings.fallbackBehavior === 'default' && isValidAccountId(settings.defaultAccountId)) {
-    recordRedirect(key);
-    chrome.tabs.update(tabId, { url: buildPortalUrl(settings, settings.defaultAccountId, url) });
-  }
-});
-
-// --- Message handlers ---
-
-function handleGetDetection(message) {
-  return Promise.all([getCachedSettings(), getLearnedAccounts()]).then(([settings, learned]) => ({
-    detection: detectAccount(message.url, settings.accountMappings, learned),
-    settings,
-    learnedAccounts: learned,
-  }));
-}
-
-function handleRedirectWithAccount(message, sender) {
-  return getCachedSettings().then((settings) => {
-    const tabId = message.tabId || sender.tab?.id;
-    const { url, accountId, roleName } = message;
-    if (typeof tabId !== 'number' || !isValidAccountId(accountId)) {
-      return { success: false };
+  if (detection.accountId && shouldRedirect) {
+    await redirectTab(settings, tabId, url, detection.accountId, detection.roleName);
+  } else if (
+    detection.matchSource === 'ambiguous' ||
+    detection.confidence === 'medium' ||
+    settings.fallbackBehavior === 'prompt'
+  ) {
+    await chrome.storage.session.set({ [promptKey(tabId)]: { detection, originalUrl: url } });
+  } else if (
+    settings.fallbackBehavior === 'default' &&
+    isValidAccountId(settings.defaultAccountId)
+  ) {
+    const roles = new Set(
+      settings.accountMappings
+        .filter((mapping) => mapping.accountId === settings.defaultAccountId)
+        .map((mapping) => mapping.roleName || settings.roleName),
+    );
+    if (roles.size > 1) {
+      await chrome.storage.session.set({
+        [promptKey(tabId)]: {
+          detection: { accountId: null, confidence: 'low', matchSource: 'ambiguous', label: null },
+          originalUrl: url,
+        },
+      });
+      return;
     }
-    const key = loopKey(tabId, url);
-    recordRedirect(key);
-    learnAccount(accountId, url);
-    chrome.tabs.update(tabId, { url: buildPortalUrl(settings, accountId, url, roleName) });
-    pendingPrompts.delete(tabId);
-    return { success: true };
-  });
+    await redirectTab(settings, tabId, url, settings.defaultAccountId, [...roles][0]);
+  }
 }
 
-function handleGetStatus() {
-  return getCachedSettings().then((settings) => ({
+chrome.webNavigation.onBeforeNavigate.addListener(
+  (details) => {
+    return handleNavigation(details).catch((error) =>
+      console.error('[AccountHop] Navigation failed:', error),
+    );
+  },
+  { url: [{ hostEquals: 'console.aws.amazon.com' }, { hostSuffix: '.console.aws.amazon.com' }] },
+);
+
+async function handleGetDetection(message) {
+  const { settings, learnedAccounts } = await getAccountData();
+  return {
+    detection: detectAccount(message.url, settings.accountMappings, learnedAccounts),
+    settings,
+  };
+}
+
+async function handleRedirectWithAccount(message, sender) {
+  await hydratedPromise;
+  const settings = await getSettings();
+  if (!settings.enabled || !isConfigured(settings))
+    throw new Error('Open Settings and enable AccountHop with a valid portal and role.');
+  const { url, accountId, roleName } = message;
+  if (!isValidAccountId(accountId) || !isAwsConsoleUrl(url))
+    throw new Error('Choose a valid AWS account and console URL.');
+  const extensionPage = !sender.tab || sender.url?.startsWith(chrome.runtime.getURL(''));
+  if (message.newTab && extensionPage) {
+    const tab = await chrome.tabs.create({ url: 'about:blank' });
+    await redirectTab(settings, tab.id, url, accountId, roleName);
+  } else {
+    const tabId = extensionPage ? message.tabId : sender.tab.id;
+    if (!Number.isInteger(tabId) || tabId < 0)
+      throw new Error('This tab is no longer available. Reopen AccountHop.');
+    await redirectTab(settings, tabId, url, accountId, roleName);
+    await chrome.storage.session.remove(promptKey(tabId));
+  }
+  return { success: true };
+}
+
+async function handleGetStatus() {
+  const settings = await getSettings();
+  return {
     enabled: settings.enabled,
-    configured: !!(settings.portalUrl && settings.roleName),
+    configured: isConfigured(settings),
     portalUrl: settings.portalUrl,
     roleName: settings.roleName,
-  }));
+  };
 }
 
-function handleWasRecentlyRedirected(sender) {
-  const tabId = sender.tab?.id;
-  const url = sender.tab?.url || '';
-  if (typeof tabId !== 'number') return { wasRedirected: false };
-  return { wasRedirected: wasRecentlyRedirected(loopKey(tabId, url)) };
+async function handleWasRecentlyRedirected(message, sender) {
+  await hydratedPromise;
+  const url = sender.url || sender.tab?.url;
+  return {
+    wasRedirected:
+      Number.isInteger(sender.tab?.id) &&
+      isAwsConsoleUrl(url) &&
+      wasRecentlyRedirected(sender.tab.id, url),
+  };
 }
 
-function handleShowChooser(sender) {
+async function handleShowChooser(message, sender) {
+  const { settings } = await getAccountData();
   const tabId = sender.tab?.id;
-  if (typeof tabId !== 'number') {
-    return Promise.resolve({ pending: null, accountMappings: [], learnedAccounts: {} });
-  }
-  const pending = pendingPrompts.get(tabId) || null;
-  pendingPrompts.delete(tabId);
-
-  return Promise.all([getCachedSettings(), getLearnedAccounts()]).then(([settings, learned]) => ({
+  const url = sender.url || sender.tab?.url;
+  if (
+    !settings.enabled ||
+    !isConfigured(settings) ||
+    !isAwsConsoleUrl(url) ||
+    !Number.isInteger(tabId)
+  )
+    return { available: false };
+  await hydratedPromise;
+  if (wasRecentlyRedirected(tabId, url)) return { available: false };
+  const key = promptKey(tabId);
+  const saved = await chrome.storage.session.get(key);
+  const pending = saved[key]?.originalUrl === url ? saved[key] : null;
+  await chrome.storage.session.remove(key);
+  return {
+    available: true,
     pending,
     accountMappings: settings.accountMappings,
-    learnedAccounts: learned,
-    originalUrl: pending?.originalUrl || sender.tab.url,
-  }));
+    originalUrl: url,
+  };
 }
-
-function handleGetLearnedAccounts() {
-  return getLearnedAccounts().then((accounts) => ({ learnedAccounts: accounts }));
-}
-
-function handleClearLearnedAccounts() {
-  return saveLearnedAccounts({}).then(() => ({ success: true }));
-}
-
-function handleImportPortalAccounts(message) {
-  const accounts = message.accounts || [];
-  return getLearnedAccounts().then(async (existing) => {
-    for (const acct of accounts) {
-      if (!isValidAccountId(acct.accountId)) continue;
-      const entry = existing[acct.accountId] || createLearnedEntry(acct.accountId, 'portal-import');
-      if (acct.label && !entry.label) entry.label = acct.label;
-      entry.lastSeen = Date.now();
-      if (!entry.source || entry.source === 'portal-import') entry.source = 'portal-import';
-      existing[acct.accountId] = entry;
-    }
-    await saveLearnedAccounts(existing);
-    return { success: true, count: accounts.length };
-  });
-}
-
-// --- Message router ---
 
 const handlers = {
   [MESSAGES.GET_DETECTION]: handleGetDetection,
@@ -239,41 +208,50 @@ const handlers = {
   [MESSAGES.GET_STATUS]: handleGetStatus,
   [MESSAGES.WAS_RECENTLY_REDIRECTED]: handleWasRecentlyRedirected,
   [MESSAGES.SHOW_CHOOSER]: handleShowChooser,
-  [MESSAGES.GET_LEARNED_ACCOUNTS]: handleGetLearnedAccounts,
-  [MESSAGES.CLEAR_LEARNED_ACCOUNTS]: handleClearLearnedAccounts,
-  [MESSAGES.IMPORT_PORTAL_ACCOUNTS]: handleImportPortalAccounts,
+  [MESSAGES.GET_SETTINGS]: async () => ({ settings: await getSettings() }),
+  [MESSAGES.SAVE_SETTINGS]: async (message, sender) => {
+    if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')))
+      throw new Error('Open Settings to save accounts.');
+    const settings = message.settings;
+    if (
+      !settings ||
+      !Array.isArray(settings.accountMappings) ||
+      !isConfigured(settings) ||
+      settings.accountMappings.some((mapping) => !isValidAccountId(mapping.accountId))
+    )
+      throw new Error('Check the portal, role, and account IDs.');
+    return {
+      success: true,
+      settings: await saveSettings(settings, message.originalAccountIds || []),
+    };
+  },
+  [MESSAGES.SET_ENABLED]: async (message) => ({ settings: await setEnabled(!!message.enabled) }),
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const handler = handlers[message.type];
-  if (!handler) return;
-
-  try {
-    const result = handler(message, sender);
-    if (result && typeof result.then === 'function') {
-      result.then(sendResponse).catch((err) => {
-        console.error(`[AccountHop for AWS] ${message.type}:`, err);
-        sendResponse({ error: err.message });
-      });
-      return true; // keep message channel open for async response
-    }
-    sendResponse(result);
-  } catch (err) {
-    console.error(`[AccountHop for AWS] ${message.type}:`, err);
-    sendResponse({ error: err.message });
-  }
+  if (!Object.hasOwn(handlers, message?.type)) return;
+  Promise.resolve()
+    .then(() => handlers[message.type](message, sender))
+    .then(sendResponse)
+    .catch((error) => {
+      console.error(`[AccountHop] ${message.type}:`, error);
+      sendResponse({ success: false, error: error.message });
+    });
+  return true;
 });
 
-// --- Tab cleanup ---
-
 chrome.tabs.onRemoved.addListener((tabId) => {
-  let changed = false;
-  for (const key of Object.keys(redirectLog)) {
-    if (key.startsWith(tabId + ':')) {
-      delete redirectLog[key];
-      changed = true;
-    }
-  }
-  if (changed) saveRedirectLog(redirectLog);
-  pendingPrompts.delete(tabId);
+  latestNavigations.delete(tabId);
+  Promise.resolve()
+    .then(async () => {
+      await hydratedPromise;
+      for (const key of Object.keys(redirectLog)) {
+        if (key.startsWith(tabId + ':')) delete redirectLog[key];
+      }
+      await Promise.all([
+        saveRedirectLog(redirectLog),
+        chrome.storage.session.remove(promptKey(tabId)),
+      ]);
+    })
+    .catch((error) => console.error('[AccountHop] Tab cleanup failed:', error));
 });

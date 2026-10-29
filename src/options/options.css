@@ -13,7 +13,7 @@ body {
 }
 
 .container {
-  max-width: 640px;
+  max-width: 960px;
   margin: 24px auto;
   padding: 0 16px;
 }
@@ -21,7 +21,7 @@ body {
 h1 {
   font-size: 22px;
   font-weight: 600;
-  margin-bottom: 20px;
+  margin-bottom: 4px;
   color: #111;
 }
 
@@ -54,7 +54,7 @@ h2 {
   margin-bottom: 4px;
 }
 
-.field input[type="text"] {
+.field input[type='text'] {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid #ccc;
@@ -62,7 +62,7 @@ h2 {
   font-size: 14px;
 }
 
-.field input[type="text"]:focus {
+.field input[type='text']:focus {
   outline: none;
   border-color: #ff9900;
   box-shadow: 0 0 0 2px rgba(255, 153, 0, 0.2);
@@ -90,7 +90,7 @@ h2 {
   font-weight: 500;
 }
 
-.toggle-row input[type="checkbox"] {
+.toggle-row input[type='checkbox'] {
   width: 18px;
   height: 18px;
   accent-color: #ff9900;
@@ -111,7 +111,7 @@ h2 {
   cursor: pointer;
 }
 
-.radio-group input[type="radio"] {
+.radio-group input[type='radio'] {
   accent-color: #ff9900;
 }
 
@@ -174,7 +174,7 @@ tbody td input:focus {
 
 .btn-primary {
   background: #ff9900;
-  color: #fff;
+  color: #172b3a;
 }
 
 .btn-primary:hover {
@@ -191,68 +191,11 @@ tbody td input:focus {
   background: #e4e4e4;
 }
 
-/* Learned accounts */
 .empty-state {
   color: #888;
   font-size: 13px;
   padding: 12px 0;
   text-align: center;
-}
-
-.learned-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.btn-danger {
-  background: #fff;
-  color: #d13212;
-  border: 1px solid #d13212;
-}
-
-.btn-danger:hover {
-  background: #fce9e6;
-}
-
-.btn-promote {
-  background: none;
-  border: none;
-  color: #0073bb;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 6px;
-}
-
-.btn-promote:hover {
-  text-decoration: underline;
-}
-
-.tag {
-  display: inline-block;
-  background: #eef;
-  color: #336;
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  margin: 1px 2px;
-}
-
-.source-badge {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.source-badge.detected {
-  background: #e6f7e6;
-  color: #1a8c1a;
-}
-
-.source-badge.portal-import {
-  background: #e6f0ff;
-  color: #0055aa;
 }
 
 .actions {
@@ -331,62 +274,266 @@ tbody td input:focus {
 /* --- Dark mode --- */
 
 @media (prefers-color-scheme: dark) {
-  body { background: #161b22; color: #e0e0e0; }
-  h1 { color: #f0f0f0; }
-  h2 { color: #ff9900; }
-
-  .section { background: #1c2128; border-color: #333b44; }
-
-  .field > label { color: #ccc; }
-  .field input[type="text"] {
-    background: #222830; border-color: #3d444d; color: #e0e0e0;
+  body {
+    background: #161b22;
+    color: #e0e0e0;
   }
-  .field input[type="text"]:focus {
+  h1 {
+    color: #f0f0f0;
+  }
+  h2 {
+    color: #ff9900;
+  }
+
+  .section {
+    background: #1c2128;
+    border-color: #333b44;
+  }
+
+  .field > label {
+    color: #ccc;
+  }
+  .field input[type='text'] {
+    background: #222830;
+    border-color: #3d444d;
+    color: #e0e0e0;
+  }
+  .field input[type='text']:focus {
     border-color: #ff9900;
     box-shadow: 0 0 0 2px rgba(255, 153, 0, 0.25);
   }
-  .field input[type="text"]::placeholder { color: #6b7280; }
-
-  .hint { color: #8b949e; }
-  .error { color: #ff6b6b; }
-
-  .toggle-row { color: #e0e0e0; }
-
-  .radio-group label { color: #ccc; }
-
-  thead th { color: #8b949e; border-bottom-color: #333b44; }
-  tbody td input {
-    background: #222830; border-color: #3d444d; color: #e0e0e0;
+  .field input[type='text']::placeholder {
+    color: #6b7280;
   }
-  tbody td input:focus { border-color: #ff9900; }
-  tbody td input::placeholder { color: #6b7280; }
 
-  .btn-delete { color: #ff6b6b; }
-  .btn-delete:hover { background: rgba(255, 107, 107, 0.15); }
+  .hint {
+    color: #8b949e;
+  }
+  .error {
+    color: #ff6b6b;
+  }
 
-  .btn-primary { background: #ff9900; color: #111; }
-  .btn-primary:hover { background: #ffad33; }
+  .toggle-row {
+    color: #e0e0e0;
+  }
 
-  .btn-secondary { background: #222830; color: #ccc; border-color: #3d444d; }
-  .btn-secondary:hover { background: #2d333b; }
+  .radio-group label {
+    color: #ccc;
+  }
 
-  .btn-danger { background: transparent; color: #ff6b6b; border-color: #ff6b6b; }
-  .btn-danger:hover { background: rgba(255, 107, 107, 0.15); }
+  thead th {
+    color: #8b949e;
+    border-bottom-color: #333b44;
+  }
+  tbody td input {
+    background: #222830;
+    border-color: #3d444d;
+    color: #e0e0e0;
+  }
+  tbody td input:focus {
+    border-color: #ff9900;
+  }
+  tbody td input::placeholder {
+    color: #6b7280;
+  }
 
-  .btn-promote { color: #58a6ff; }
+  .btn-delete {
+    color: #ff6b6b;
+  }
+  .btn-delete:hover {
+    background: rgba(255, 107, 107, 0.15);
+  }
 
-  .empty-state { color: #6b7280; }
+  .btn-primary {
+    background: #ff9900;
+    color: #111;
+  }
+  .btn-primary:hover {
+    background: #ffad33;
+  }
 
-  .tag { background: #222830; color: #8db4e8; }
+  .btn-secondary {
+    background: #222830;
+    color: #ccc;
+    border-color: #3d444d;
+  }
+  .btn-secondary:hover {
+    background: #2d333b;
+  }
 
-  .source-badge.detected { background: rgba(26, 140, 26, 0.2); color: #66cc66; }
-  .source-badge.portal-import { background: rgba(0, 85, 170, 0.2); color: #58a6ff; }
+  .empty-state {
+    color: #6b7280;
+  }
 
-  .status { color: #66cc66; }
-  .donation-note { color: #8b949e; }
-  .donate-link { background: rgba(255, 153, 0, 0.12); }
-  .donate-link:hover { background: rgba(255, 153, 0, 0.22); }
-  .donate-text-link { color: #58a6ff; }
+  .status {
+    color: #66cc66;
+  }
+  .donation-note {
+    color: #8b949e;
+  }
+  .donate-link {
+    background: rgba(255, 153, 0, 0.12);
+  }
+  .donate-link:hover {
+    background: rgba(255, 153, 0, 0.22);
+  }
+  .donate-text-link {
+    color: #58a6ff;
+  }
 
-  code { color: #ffad33; }
+  code {
+    color: #ffad33;
+  }
+}
+
+.intro {
+  margin-bottom: 20px;
+  color: #536575;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+#mappingsTable {
+  min-width: 740px;
+  table-layout: fixed;
+}
+#mappingsTable th:first-child {
+  width: 40px;
+}
+#mappingsTable th:nth-child(3) {
+  width: 160px;
+}
+#mappingsTable th:last-child {
+  width: 44px;
+}
+:focus-visible {
+  outline: 2px solid #0073bb;
+  outline-offset: 3px;
+}
+input[aria-invalid='true'] {
+  border: 2px solid #b42318;
+}
+.actions {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 -3px 12px #00000008;
+}
+.status {
+  overflow-wrap: anywhere;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.donate-link span {
+  font-size: 22px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+  .intro {
+    color: #a9b8c6;
+  }
+  .actions {
+    background: #1c2128;
+    border-color: #333b44;
+  }
+  input[aria-invalid='true'] {
+    border-color: #ffb4ac;
+  }
+}
+.behavior-hint {
+  margin-bottom: 16px;
+}
+.status[data-state='error'] {
+  color: #b42318;
+}
+.status[data-state='success'] {
+  color: #087e64;
+}
+.status[data-state='pending'] {
+  color: #536575;
+}
+@media (prefers-color-scheme: dark) {
+  .status[data-state='error'] {
+    color: #ffb4ac;
+  }
+  .status[data-state='success'] {
+    color: #7dd9b7;
+  }
+  .status[data-state='pending'] {
+    color: #a9b8c6;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.keyword-help {
+  margin-top: 12px;
+}
+.keyword-help summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.mapping-drag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #536575;
+  cursor: grab;
+}
+.mapping-drag svg {
+  width: 14px;
+  height: 18px;
+  fill: currentColor;
+  pointer-events: none;
+}
+.mapping-drag:hover:enabled {
+  background: #e6f0ff;
+  color: #0073bb;
+}
+.mapping-drag:active {
+  cursor: grabbing;
+}
+.mapping-drag:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+#mappingsBody .is-dragging {
+  opacity: 0.45;
+}
+@media (prefers-color-scheme: dark) {
+  .mapping-drag {
+    color: #a9b8c6;
+  }
+  .mapping-drag:hover:enabled {
+    background: #2d333b;
+    color: #58a6ff;
+  }
 }

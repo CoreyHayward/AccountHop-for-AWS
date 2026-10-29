@@ -1,94 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <div class="popup">
-    <header>
-      <span class="title">AccountHop for AWS</span>
-      <label class="toggle">
-        <input type="checkbox" id="enabled">
-        <span class="toggle-slider"></span>
-      </label>
-    </header>
-
-    <div id="notConfigured" class="state" style="display:none;">
-      <p class="message">Extension not configured yet.</p>
-      <button id="openSettingsTop" class="btn btn-primary btn-full">Open Settings</button>
-    </div>
-
-    <div id="notAwsPage" class="state" style="display:none;">
-      <p class="message">Not on an AWS console page.</p>
-    </div>
-
-    <div id="disabled" class="state" style="display:none;">
-      <p class="message">Extension is disabled.</p>
-    </div>
-
-    <div id="detection" class="state" style="display:none;">
-      <div class="info-row">
-        <span class="info-label">Portal</span>
-        <span class="info-value" id="portalDisplay"></span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Role</span>
-        <span class="info-value" id="roleDisplay"></span>
-      </div>
-      <hr>
-      <div class="detection-result">
-        <div class="info-row">
-          <span class="info-label">Account</span>
-          <span class="info-value" id="accountDisplay">--</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AccountHop for AWS</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup">
+      <header>
+        <div class="brand">
+          <img src="../icons/icon-48.png" width="28" height="28" alt="" />
+          <div>
+            <h1>AccountHop <span>for AWS</span></h1>
+            <p id="enabledLabel">Automatic switching</p>
+          </div>
         </div>
-        <div class="info-row">
-          <span class="info-label">Label</span>
-          <span class="info-value" id="labelDisplay">--</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Confidence</span>
-          <span class="badge" id="confidenceBadge">--</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Source</span>
-          <span class="info-value" id="sourceDisplay">--</span>
-        </div>
-      </div>
-      <button id="redirectNow" class="btn btn-primary btn-full">Redirect Now</button>
+        <label class="toggle" title="Enable automatic account switching">
+          <input type="checkbox" id="enabled" aria-label="Enable AccountHop" disabled />
+          <span class="toggle-slider"></span>
+        </label>
+      </header>
+      <p id="error" class="error" role="alert" hidden></p>
+      <main>
+        <p id="loading" class="message" role="status">Loading accounts…</p>
+        <section id="notConfigured" hidden>
+          <h2>Connect your AWS portal</h2>
+          <p class="message">Add your company’s portal URL and role to start switching accounts.</p>
+          <button id="openSettingsTop" class="btn btn-primary btn-full">Set up AccountHop</button>
+        </section>
+        <section id="disabled" hidden>
+          <h2>AccountHop is paused</h2>
+          <p class="message">Turn it on above to resume account switching.</p>
+        </section>
+        <section id="workspace" hidden>
+          <div class="context">
+            <p id="pageContext"></p>
+            <p id="portalDisplay" class="muted"></p>
+          </div>
+          <section id="detection" class="detection" hidden>
+            <p class="eyebrow" id="detectionTitle">Account found in this link</p>
+            <h2 id="labelDisplay"></h2>
+            <p id="accountDisplay" class="account-id"></p>
+            <p id="detectionReason" class="muted"></p>
+            <button id="redirectNow" class="btn btn-primary btn-full">Open in this account</button>
+          </section>
+          <section class="accounts">
+            <div class="account-tools">
+              <div class="section-heading">
+                <h2>Switch account</h2>
+                <span id="accountCount" class="muted"></span>
+              </div>
+              <label class="sr-only" for="accountSearch"
+                >Search accounts by name, ID, or role</label
+              >
+              <input
+                type="search"
+                id="accountSearch"
+                placeholder="Search accounts"
+                autocomplete="off"
+              />
+              <p id="resultCount" class="sr-only" role="status"></p>
+            </div>
+            <div id="accountList" aria-label="Accounts"></div>
+            <p id="emptyAccounts" class="message" hidden></p>
+            <details>
+              <summary>Use another account ID</summary>
+              <form id="manualSwitch">
+                <label for="manualAccount">AWS account ID</label>
+                <div class="manual-row">
+                  <input
+                    id="manualAccount"
+                    inputmode="numeric"
+                    pattern="[0-9]{12}"
+                    maxlength="12"
+                    placeholder="12-digit account ID"
+                    required
+                  /><button class="btn btn-secondary" type="submit">Open</button>
+                </div>
+                <p class="muted" id="manualRole"></p>
+              </form>
+            </details>
+          </section>
+          <button id="openPortal" class="btn btn-secondary btn-full">
+            Open AWS access portal ↗
+          </button>
+        </section>
+      </main>
+      <footer>
+        <button id="openSettings" class="text-button">Settings</button
+        ><a href="https://buymeacoffee.com/coreyhayward" target="_blank" rel="noreferrer"
+          >Support AccountHop ↗</a
+        >
+      </footer>
     </div>
-
-    <div id="quickSwitch" style="display:none;">
-      <hr>
-      <p class="section-title">Quick Switch</p>
-      <div id="accountList"></div>
-    </div>
-
-    <footer>
-      <button
-        id="openSettings"
-        class="icon-button"
-        type="button"
-        aria-label="Open settings"
-        title="Settings"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.16a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.8a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/>
-        </svg>
-      </button>
-      <a
-        class="donate-link"
-        href="https://buymeacoffee.com/coreyhayward"
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Support on Buy Me a Coffee"
-      >
-        <img src="https://buymeacoffee.com/favicon.ico" alt="Buy Me a Coffee">
-      </a>
-    </footer>
-  </div>
-
-  <script src="../shared/constants.js"></script>
-  <script src="popup.js"></script>
-</body>
+    <script src="../shared/constants.js"></script>
+    <script src="popup.js"></script>
+  </body>
 </html>

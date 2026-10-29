@@ -1,130 +1,167 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>AccountHop for AWS Settings</title>
-  <link rel="stylesheet" href="options.css">
-</head>
-<body>
-  <div class="container">
-    <h1>AccountHop for AWS Settings</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AccountHop for AWS Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>AccountHop for AWS Settings</h1>
+      <p class="intro">Connect your access portal, then add the accounts you use most.</p>
 
-    <section class="section">
-      <label class="toggle-row">
-        <input type="checkbox" id="enabled">
-        <span>Enable extension</span>
-      </label>
-    </section>
+      <section class="section">
+        <label class="toggle-row">
+          <input type="checkbox" id="enabled" />
+          <span>Enable extension</span>
+        </label>
+      </section>
 
-    <section class="section">
-      <h2>Portal Configuration</h2>
-      <div class="field">
-        <label for="portalUrl">Portal URL</label>
-        <input type="text" id="portalUrl" placeholder="mycompany.awsapps.com">
-        <span class="hint">e.g. mycompany.awsapps.com &mdash; do not include https:// or /start</span>
-        <span class="error" id="portalUrlError"></span>
-      </div>
-      <div class="field">
-        <label for="roleName">Default Role Name</label>
-        <input type="text" id="roleName" placeholder="Developer">
-        <span class="hint">The permission set / role name configured in your AWS access portal</span>
-        <span class="error" id="roleNameError"></span>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>Account Mappings</h2>
-      <p class="hint">Map keywords found in AWS URLs to specific account IDs. Keywords are matched against the full URL.</p>
-      <table id="mappingsTable">
-        <thead>
-          <tr>
-            <th>Keyword</th>
-            <th>Account ID</th>
-            <th>Label</th>
-            <th>Role Override</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="mappingsBody"></tbody>
-      </table>
-      <button type="button" id="addMapping" class="btn btn-secondary">+ Add Mapping</button>
-    </section>
-
-    <section class="section">
-      <h2>Redirect Behavior</h2>
-
-      <div class="field">
-        <label>Auto-redirect when confidence is:</label>
-        <div class="radio-group">
-          <label><input type="radio" name="autoRedirectMinConfidence" value="high"> High only</label>
-          <label><input type="radio" name="autoRedirectMinConfidence" value="medium"> Medium and above</label>
+      <section class="section">
+        <h2>Portal Configuration</h2>
+        <div class="field">
+          <label for="portalUrl">Portal URL</label>
+          <input
+            type="text"
+            id="portalUrl"
+            aria-describedby="portalUrlHint portalUrlError"
+            autocomplete="url"
+            placeholder="mycompany.awsapps.com"
+          />
+          <span class="hint" id="portalUrlHint"
+            >Paste your AWS access portal URL, or enter a hostname such as
+            mycompany.awsapps.com.</span
+          >
+          <span class="error" id="portalUrlError"></span>
         </div>
-      </div>
-
-      <div class="field">
-        <label>When no account is detected:</label>
-        <div class="radio-group">
-          <label><input type="radio" name="fallbackBehavior" value="prompt"> Show account chooser</label>
-          <label><input type="radio" name="fallbackBehavior" value="ignore"> Do nothing</label>
-          <label><input type="radio" name="fallbackBehavior" value="default"> Use default account</label>
+        <div class="field">
+          <label for="roleName">Default Role Name</label>
+          <input
+            type="text"
+            id="roleName"
+            aria-describedby="roleNameError"
+            placeholder="Developer"
+          />
+          <span class="hint"
+            >The permission set / role name configured in your AWS access portal</span
+          >
+          <span class="error" id="roleNameError"></span>
         </div>
+      </section>
+
+      <section class="section">
+        <h2>Accounts</h2>
+        <p class="hint">
+          Import accounts from your portal or add one below. Names, roles, and order all live here.
+        </p>
+        <p class="hint" id="mappingOrderHint">
+          Drag the handles to reorder. With a handle focused, use Alt+Up or Alt+Down. Save Settings
+          to keep your changes.
+        </p>
+        <p id="mappingOrderStatus" class="hint" role="status"></p>
+        <div class="table-scroll">
+          <table id="mappingsTable">
+            <thead>
+              <tr>
+                <th><span class="sr-only">Order</span></th>
+                <th>Name</th>
+                <th>Account ID</th>
+                <th>Role Override</th>
+                <th>URL keyword</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="mappingsBody"></tbody>
+          </table>
+        </div>
+        <p id="accountsEmpty" class="empty-state" hidden>
+          No accounts yet. Import from your portal or add an account.
+        </p>
+        <div class="account-actions">
+          <button type="button" id="addMapping" class="btn btn-secondary">+ Add account</button>
+          <button type="button" id="importPortal" class="btn btn-secondary">
+            Import from Portal
+          </button>
+          <span class="status" id="importStatus" role="status"></span>
+        </div>
+        <details class="keyword-help">
+          <summary>Set up automatic switching with keywords</summary>
+          <p class="hint">
+            Keywords are optional. They match whole words in console URLs, so “prod” matches
+            “my-prod-queue” but not “nonprod”. Leave them blank for manual switching. Conflicting
+            matches always ask you to choose.
+          </p>
+        </details>
+      </section>
+
+      <section class="section">
+        <h2>Redirect Behavior</h2>
+
+        <p class="hint behavior-hint">
+          AccountHop switches automatically when a link contains one account ID or matches one
+          keyword rule. Suggestions and conflicting matches always ask you to choose.
+        </p>
+
+        <div class="field">
+          <label>When no account is detected:</label>
+          <div class="radio-group">
+            <label
+              ><input type="radio" name="fallbackBehavior" value="prompt" /> Show account
+              chooser</label
+            >
+            <label><input type="radio" name="fallbackBehavior" value="ignore" /> Do nothing</label>
+            <label
+              ><input type="radio" name="fallbackBehavior" value="default" /> Use default
+              account</label
+            >
+          </div>
+        </div>
+
+        <div class="field" id="defaultAccountField" hidden>
+          <label for="defaultAccountId">Default Account ID</label>
+          <input
+            type="text"
+            id="defaultAccountId"
+            inputmode="numeric"
+            maxlength="12"
+            aria-describedby="defaultAccountIdError"
+            placeholder="123456789012"
+            pattern="\d{12}"
+          />
+          <span class="error" id="defaultAccountIdError"></span>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button type="button" id="saveBtn" class="btn btn-primary">Save Settings</button>
+        <span class="status" id="saveStatus" role="status"></span>
       </div>
 
-      <div class="field" id="defaultAccountField" style="display:none;">
-        <label for="defaultAccountId">Default Account ID</label>
-        <input type="text" id="defaultAccountId" placeholder="123456789012" pattern="\d{12}">
-        <span class="error" id="defaultAccountIdError"></span>
+      <div class="donation-note">
+        <a
+          class="donate-link"
+          href="https://buymeacoffee.com/coreyhayward"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Buy Me a Coffee"
+        >
+          <span aria-hidden="true">☕</span>
+        </a>
+        <p>
+          If AccountHop makes your day a little easier and you want to help support me,
+          <a
+            class="donate-text-link"
+            href="https://buymeacoffee.com/coreyhayward"
+            target="_blank"
+            rel="noreferrer"
+            >buy me a coffee</a
+          >.
+        </p>
       </div>
-    </section>
-
-    <section class="section">
-      <h2>Learned Accounts</h2>
-      <p class="hint">Accounts automatically discovered from your browsing or imported from your portal. These are used for detection when no keyword mapping matches.</p>
-      <div id="learnedAccountsEmpty" class="empty-state">No learned accounts yet. Browse AWS pages or import from your portal.</div>
-      <table id="learnedTable" style="display:none;">
-        <thead>
-          <tr>
-            <th>Account ID</th>
-            <th>Label</th>
-            <th>Services</th>
-            <th>Regions</th>
-            <th>Source</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="learnedBody"></tbody>
-      </table>
-      <div class="learned-actions">
-        <button type="button" id="importPortal" class="btn btn-secondary">Import from Portal</button>
-        <button type="button" id="clearLearned" class="btn btn-danger" style="display:none;">Clear All</button>
-        <span class="status" id="importStatus"></span>
-      </div>
-    </section>
-
-    <div class="actions">
-      <button type="button" id="saveBtn" class="btn btn-primary">Save Settings</button>
-      <span class="status" id="saveStatus"></span>
     </div>
 
-    <div class="donation-note">
-      <a
-        class="donate-link"
-        href="https://buymeacoffee.com/coreyhayward"
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Buy Me a Coffee"
-      >
-        <img src="https://buymeacoffee.com/favicon.ico" alt="Buy Me a Coffee logo">
-      </a>
-      <p>
-        If AccountHop makes your day a little easier and you want to help support me,
-        <a class="donate-text-link" href="https://buymeacoffee.com/coreyhayward" target="_blank" rel="noreferrer">buy me a coffee</a>.
-      </p>
-    </div>
-  </div>
-
-  <script src="../shared/constants.js"></script>
-  <script src="../shared/storage.js"></script>
-  <script src="options.js"></script>
-</body>
+    <script src="../shared/constants.js"></script>
+    <script src="options.js"></script>
+  </body>
 </html>

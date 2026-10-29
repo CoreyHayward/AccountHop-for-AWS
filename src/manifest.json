@@ -3,12 +3,7 @@
   "name": "AccountHop for AWS",
   "version": "0.0.1",
   "description": "Automatically redirects AWS console URLs through your company's AWS access portal to open resources in the correct account context.",
-  "permissions": [
-    "webNavigation",
-    "storage",
-    "tabs",
-    "activeTab"
-  ],
+  "permissions": ["webNavigation", "storage", "activeTab"],
   "host_permissions": [
     "https://*.console.aws.amazon.com/*",
     "https://console.aws.amazon.com/*",
@@ -28,17 +23,12 @@
   "options_page": "options/options.html",
   "content_scripts": [
     {
-      "matches": [
-        "https://*.console.aws.amazon.com/*",
-        "https://console.aws.amazon.com/*"
-      ],
+      "matches": ["https://*.console.aws.amazon.com/*", "https://console.aws.amazon.com/*"],
       "js": ["shared/constants.js", "content/content.js"],
       "run_at": "document_idle"
     },
     {
-      "matches": [
-        "https://*.awsapps.com/*"
-      ],
+      "matches": ["https://*.awsapps.com/*"],
       "js": ["shared/constants.js", "content/portal-scraper.js"],
       "run_at": "document_idle"
     }
@@ -47,5 +37,6 @@
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
-  }
+  },
+  "minimum_chrome_version": "102"
 }
