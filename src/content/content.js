@@ -6,23 +6,42 @@
     if (message.type !== MESSAGES.GET_CURRENT_ACCOUNT) return;
     let accountId = '';
     let alias = '';
+    let aliasFromSession = false;
     try {
       const data = JSON.parse(
         document.querySelector('meta[name="awsc-session-data"]')?.content || '{}',
       );
       accountId = typeof data.accountId === 'string' ? data.accountId : '';
       alias = typeof data.accountAlias === 'string' ? data.accountAlias : '';
+      aliasFromSession = !!alias;
     } catch {
       /* AWS session metadata may not be available yet. */
     }
     if (!isValidAccountId(accountId)) {
-      const menu = document.querySelector(
-        '[data-testid="aws-my-account-details"], #nav-usernameMenu',
+      const menus = document.querySelectorAll(
+        '[data-testid="account-detail-menu"], [data-testid*="aws-my-account-details"], [data-testid="awsc-nav-account-menu-button"], #nav-usernameMenu',
       );
-      const match = menu?.textContent?.match(/(?:^|\D)(\d{4})-?(\d{4})-?(\d{4})(?!\d)/);
-      accountId = match ? match.slice(1).join('') : '';
+      for (const menu of menus) {
+        const match = menu.textContent?.match(/(?:^|\D)(\d{4})-?(\d{4})-?(\d{4})(?!\d)/);
+        if (match) {
+          accountId = match.slice(1).join('');
+          break;
+        }
+      }
     }
-    respond(isValidAccountId(accountId) ? { accountId, alias } : null);
+    if (!alias) {
+      const button = document.querySelector('[data-testid="awsc-nav-account-menu-button"]');
+      const title = button?.getAttribute('title') || button?.textContent || '';
+      alias = title.includes(' @ ') ? title.split(' @ ').pop().trim() : title.trim();
+      aliasFromSession = title.includes(' @ ');
+    }
+    respond(
+      isValidAccountId(accountId)
+        ? { accountId, alias }
+        : alias
+          ? { accountId: null, alias, aliasFromSession }
+          : null,
+    );
   });
 
   init().catch((error) => console.debug('[AccountHop] Could not check this page:', error.message));

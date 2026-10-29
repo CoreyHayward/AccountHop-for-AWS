@@ -628,3 +628,52 @@ test('popup shows the signed-in account, not the account in the link', async ({ 
     'Current',
   );
 });
+
+test('popup reads the current account from the AWS account details menu', async ({ extension }) => {
+  await extension.context.route('https://console.aws.amazon.com/s3/**', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<div data-testid="account-detail-menu"><span>Account ID</span><span>2109-8765-4321</span></div><h1>Console</h1>',
+    }),
+  );
+  await extension.worker.evaluate(() => AWSAutoLogin.setEnabled(false));
+  const page = await extension.context.newPage();
+  await page.goto('https://console.aws.amazon.com/s3/');
+  await extension.worker.evaluate(() => AWSAutoLogin.setEnabled(true));
+  const opened = extension.context.waitForEvent('page');
+  await extension.worker.evaluate(
+    (url) => chrome.tabs.create({ url, active: false }),
+    `${extension.url}/popup/popup.html`,
+  );
+  const popup = await opened;
+  await expect(popup.locator('#currentAccountName')).toHaveText('Development');
+  await expect(popup.locator('#currentAccountId')).toHaveText('210987654321');
+});
+
+test('popup shows a matching account name when AWS only exposes its navigation label', async ({
+  extension,
+}) => {
+  await extension.context.route('https://console.aws.amazon.com/s3/**', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<button data-testid="awsc-nav-account-menu-button">Development</button><h1>Console</h1>',
+    }),
+  );
+  await extension.worker.evaluate(() => AWSAutoLogin.setEnabled(false));
+  const page = await extension.context.newPage();
+  await page.goto('https://console.aws.amazon.com/s3/');
+  await extension.worker.evaluate(() => AWSAutoLogin.setEnabled(true));
+  const opened = extension.context.waitForEvent('page');
+  await extension.worker.evaluate(
+    (url) => chrome.tabs.create({ url, active: false }),
+    `${extension.url}/popup/popup.html`,
+  );
+  const popup = await opened;
+  await expect(popup.locator('#currentAccountName')).toHaveText('Development');
+  await expect(popup.locator('#currentAccountId')).toHaveText('Account ID unavailable');
+  await page.locator('[data-testid="awsc-nav-account-menu-button"]').evaluate((node) => {
+    node.textContent = 'some-user';
+  });
+  await popup.reload();
+  await expect(popup.locator('#currentAccountName')).toHaveText('Account unavailable');
+});

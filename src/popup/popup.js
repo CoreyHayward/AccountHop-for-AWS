@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let busy = false;
   let allAccounts = [];
   let currentAccount = null;
+  let accountPageUnavailable = false;
 
   function showError(error) {
     el('error').textContent =
@@ -156,6 +157,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       } catch {
         currentAccount = null;
+        accountPageUnavailable = true;
+      }
+      if (
+        currentAccount &&
+        !currentAccount.accountId &&
+        !currentAccount.aliasFromSession &&
+        !allAccounts.some(
+          (account) => account.label.toLowerCase() === currentAccount.alias.toLowerCase(),
+        )
+      ) {
+        currentAccount = null;
       }
       el('currentAccount').hidden = false;
       const saved = allAccounts.find((account) => account.accountId === currentAccount?.accountId);
@@ -163,7 +175,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? saved?.label || currentAccount.alias || 'AWS account'
         : 'Account unavailable';
       el('currentAccountId').textContent =
-        currentAccount?.accountId || 'Open the AWS account menu to check your account.';
+        currentAccount?.accountId ||
+        (currentAccount?.alias
+          ? 'Account ID unavailable'
+          : accountPageUnavailable
+            ? 'Refresh this AWS page, then reopen AccountHop.'
+            : 'Open the AWS account menu, then reopen AccountHop.');
     }
     el('enabled').checked = settings.enabled;
     el('enabled').disabled = false;
