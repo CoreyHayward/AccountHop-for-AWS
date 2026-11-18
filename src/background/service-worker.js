@@ -183,6 +183,7 @@ async function handleShowChooser(message, sender) {
   const url = sender.url || sender.tab?.url;
   if (
     !settings.enabled ||
+    settings.fallbackBehavior === 'ignore' ||
     !isConfigured(settings) ||
     !isAwsConsoleUrl(url) ||
     !Number.isInteger(tabId)

@@ -105,6 +105,17 @@ test('ambiguous links prompt even when default fallback is set', async () => {
   );
   assert.equal(result.pending.detection.matchSource, 'ambiguous');
 });
+test('Do nothing suppresses the console chooser with or without a pending match', async () => {
+  const h = harness({ settings: { ...settings, fallbackBehavior: 'ignore' } });
+  const ambiguous = url + '/210987654321/';
+  await h.navigate(ambiguous);
+  for (const pageUrl of [ambiguous, 'https://console.aws.amazon.com/s3/']) {
+    const response = await h.message({ type: 'SHOW_CHOOSER' }, { tab: { id: 1, url: pageUrl } });
+    assert.equal(response.available, false);
+  }
+  assert.equal(h.navigations.length, 0);
+  assert.equal((await redirect(h)).success, true);
+});
 test('stale prompts from earlier pages never appear on a new page', async () => {
   const h = harness({
     session: { 'pendingPrompt:1': { originalUrl: 'https://console.aws.amazon.com/old' } },

@@ -40,11 +40,11 @@ Drag an account’s handle to change its order, then save. You can also focus th
 When you open an AWS console link, the extension:
 
 1. **Detects the account** — looks for a 12-digit account ID in the URL (query params, path, ARN, embedded service URLs)
-2. **Checks your mappings** — if no ID appears in the URL, matches whole words against your keyword rules. For example, `prod` matches `my-prod-queue` but not `nonprod`. Conflicting account hints always open the chooser.
+2. **Checks your mappings** — if no ID appears in the URL, matches whole words against your keyword rules. For example, `prod` matches `my-prod-queue` but not `nonprod`. Conflicting account hints leave you on the current page.
 3. **Redirects through the portal** — builds a deep link like `https://portal/start/#/console?account_id=...&role_name=...&destination=...`
 4. **You land on the resource** in the correct account context
 
-If the extension can't determine the account, it follows your fallback setting: show the chooser, do nothing, or use your default account. Conflicting hints always ask you to choose. The chooser also accepts an account ID that you have not saved.
+If the extension can't determine the account, it follows your fallback setting: show the chooser, do nothing, or use your default account. **Do nothing** hides the banner, including for conflicting hints and access errors. You can still switch accounts from the popup. The chooser also accepts an account ID that you have not saved.
 
 Open the popup to search accounts by name, ID, or role. On an AWS console page, switching keeps the current resource link. From any other page, it opens AWS in a new tab. The account shown for a link is its detected target; it does not prove which account you are currently signed into.
 
